@@ -2,7 +2,6 @@
 # March 24, 2026
 # Sonar program
 
-# setting the module 
 import time
 import board
 import digitalio
@@ -14,35 +13,48 @@ trig_pin.direction = digitalio.Direction.OUTPUT
 echo_pin = digitalio.DigitalInOut(board.GP2)
 echo_pin.direction = digitalio.Direction.INPUT
 
-# setting the loop for claucitons 
+print("Starting Sonar...")
+
 while True:
-    # Send trigger pulse
+    # trigger the sensor
     trig_pin.value = False
-    time.sleep(0.000002)        # 2 microseconds
+    time.sleep(0.000002)
     trig_pin.value = True
-    time.sleep(0.00001)         # 10 microseconds
+    time.sleep(0.00001)
     trig_pin.value = False
 
-    # wait for echo to start (with timeout)
-    timeout = time.monotonic() + 0.02
+    # 2. Wait for pulse to START (with timeout)
+    # 30ms timeout = ~5 meters distance max
+    timeout = time.monotonic() + 0.03 
+    pulse_start = time.monotonic_ns()
+    
     while echo_pin.value == False:
-        pulse_start = time.monotonic()
+        pulse_start = time.monotonic_ns()
         if time.monotonic() > timeout:
             break
 
-    # wait for echo to end (with timeout)
-    timeout = time.monotonic() + 0.02
+    # 3. Wait for pulse to END (with timeout)
+    timeout = time.monotonic() + 0.03
+    pulse_end = time.monotonic_ns()
+    
     while echo_pin.value == True:
-        pulse_end = time.monotonic()
+        pulse_end = time.monotonic_ns()
         if time.monotonic() > timeout:
             break
 
-    # calculate distance only if both values were captured
-    try:
-        duration = (pulse_end - pulse_start) * 1_000_000
-        distance = (duration * 0.0343) / 2
-        print(f"Distance: {distance:.2f} cm")
-    except:
-        print("No echo detected - check wiring")
+    # 4. calculate only if didn't time out
+    duration_ns = pulse_end - pulse_start
+    
+    if duration_ns > 0:
+        duration_us = duration_ns / 1000
+        distance = (duration_us * 0.0343) / 2
+        
+        # only print if distance is within a realistic range
+        if 2 < distance < 400:
+            print(f"Distance: {distance:.2f} cm")
+        else:
+            print("Out of range")
+    else:
+        print("No pulse detected")
 
     time.sleep(0.1)
